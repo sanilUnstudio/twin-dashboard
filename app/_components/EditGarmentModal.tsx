@@ -1,7 +1,7 @@
 'use client'
 
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toImageKitUrl } from '@/lib/toImageKitUrl';
 import { toast } from '@/hooks/use-toast';
@@ -15,12 +15,36 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
     const [type, setType] = useState(garment.type);
     const [price, setPrice] = useState(garment.price);
     const [brandName, setBrandName] = useState(garment.brandName);
-    const [categories, setCategories] = useState('Summer, Clearance');
     const [buyLink, setBuyLink] = useState(garment.buyLink);
     const [newImage, setNewImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState(garment.displayUrl);
     const [isLoading, setIsLoading] = useState(false);
     const queryClient = new QueryClient();
+    const [availableCategories, setAvailableCategories] = useState<{ id: string; name: string }[]>([]);
+    
+
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+        garment?.merchCategories?.map((cat: any) => cat.merchCategory?.id) || []
+    );
+
+
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await fetch('/api/merch-categories');
+                const data = await res.json();
+                setAvailableCategories(data.data);
+                if (!selectedCategoryIds && data.data.length > 0) {
+                    setSelectedCategoryIds(data.data[0].id);
+                }
+            } catch (err) {
+                console.error("Failed to fetch merch categories", err);
+            }
+        };
+
+        fetchCategories();
+    }, []);
 
 
     const handleSubmit = async () => {
@@ -38,7 +62,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             const s3UploadRes = await fetch(uploadUrl, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': newImage?.type || 'image/jpeg' ,
+                    'Content-Type': newImage?.type || 'image/jpeg',
                 },
                 body: newImage,
             });
@@ -48,7 +72,6 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             // 3. Generate image URL (public)
             const s3Url = `https://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${key}`;
             const imageUrl = toImageKitUrl(s3Url);
-            console.log("sanil", imageUrl);
             setIsLoading(true);
             const formData = new FormData();
             if (newImage) {
@@ -87,17 +110,19 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             formData.append('price', price.toString());
             formData.append('name', name);
             formData.append('buyLink', buyLink);
+            formData.append('merchCategoryIds', JSON.stringify(selectedCategoryIds));
+
 
             const response = await axios.patch(`/api/garment/${garment.id}`, formData);
 
             if (response.data.success) {
+                await queryClient.invalidateQueries({ queryKey: ['all-garments'] })
                 console.log("Garment updated successfully", response.data.data);
                 toast({
                     title: 'Success!',
                     description: 'Garment updated successfully.',
                 })
 
-                await queryClient.invalidateQueries({ queryKey: ['all-garments'] })
                 onClose();
             } else {
                 console.error("Update failed", response.data.message);
@@ -180,7 +205,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                                         type="text"
                                         value={name}
                                         onChange={e => setName(e.target.value)}
-                                        className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                        className="w-full bg-inherit text-white p-2 rounded border border-gray-700"
                                         placeholder="Name"
                                     />
 
@@ -188,7 +213,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                                         <select
                                             value={gender}
                                             onChange={e => setGender(e.target.value)}
-                                            className="w-1/2 bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                            className="w-1/2 bg-inherit text-white p-2 rounded border border-gray-700"
                                         >
                                             <option>Male</option>
                                             <option>Female</option>
@@ -197,7 +222,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                                         <select
                                             value={type}
                                             onChange={e => setType(e.target.value)}
-                                            className="w-1/2 bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                            className="w-1/2 bg-inherit text-white p-2 rounded border border-gray-700"
                                         >
                                             <option value="TOP">TOP</option>
                                             <option value="BOTTOM">BOTTOM</option>
@@ -212,34 +237,56 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                                     type="text"
                                     value={price}
                                     onChange={e => setPrice(e.target.value)}
-                                    className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                    className="w-full bg-inherit text-white p-2 rounded border border-gray-700"
                                     placeholder="Price"
                                 />
                                 <input
                                     type="text"
                                     value={brandName}
                                     onChange={e => setBrandName(e.target.value)}
-                                    className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                    className="w-full bg-inherit text-white p-2 rounded border border-gray-700"
                                     placeholder="Brand Name"
                                 />
                                 <input
                                     type="text"
                                     value={buyLink}
                                     onChange={e => setBuyLink(e.target.value)}
-                                    className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700"
+                                    className="w-full bg-inherit text-white p-2 rounded border border-gray-700"
                                     placeholder="Buy Link"
                                 />
-                                <input
-                                    type="text"
-                                    value={categories}
-                                    onChange={e => setCategories(e.target.value)}
-                                    className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700"
-                                    placeholder="Categories (comma separated)"
-                                />
+                                <select
+                                    multiple
+                                    value={selectedCategoryIds}
+                                    onChange={(e) =>
+                                        setSelectedCategoryIds(Array.from(e.target.selectedOptions, (option) => option.value))
+                                    }
+                                    className="w-full bg-inherit text-white p-2 rounded border border-gray-700 h-32"
+                                >
+                                    {availableCategories.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="text-sm text-gray-400 mt-1">
+                                    Selected: {selectedCategoryIds.length > 0
+                                        ? availableCategories
+                                            .filter(cat => selectedCategoryIds.includes(cat.id))
+                                            .map(cat => cat.name)
+                                            .join(', ')
+                                        : 'None'}
+                                </div>
+
                             </div>
 
                             <div className="mt-6 flex justify-between items-center">
-                                <span onClick={onClose} className="text-sm text-gray-400">Cancel</span>
+                                <button
+                                    onClick={onClose}
+                                    className="bg-white  px-4 py-2 rounded bg-inherit border text-white transition"
+                                >
+                                    Cancel
+                                </button>
+
                                 {isLoading ?
                                     <button
 

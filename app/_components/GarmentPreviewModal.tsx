@@ -18,10 +18,11 @@ export default function GarmentPreviewModal({
         type: string;
         price: string;
         brandName: string;
-        categories: string;
+        merchCategories: any[];
         buyLink?: string;
     };
-}) {
+    }) {
+    console.log("sanil",garment)
     return (
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -69,10 +70,10 @@ export default function GarmentPreviewModal({
                                         <div>{garment.brandName}</div>
                                     </div>
 
-                                    {/* <div>
+                                    <div>
                                         <div className="text-sm text-gray-400">Categories</div>
-                                        <div>{garment.categories}</div>
-                                    </div> */}
+                                        <div>{garment.merchCategories?.map((cat) => cat.merchCategory?.name).join(", ") || "Uncategorized"}</div>
+                                    </div>
 
                                     {garment.buyLink && (
                                         <div>

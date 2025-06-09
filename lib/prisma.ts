@@ -7,7 +7,7 @@ const readClient = new PrismaClient({
       url: process.env.DATABASE_URL_READ,
     },
   },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: [],
 });
 
 // Write client
@@ -17,7 +17,7 @@ const writeClient = new PrismaClient({
       url: process.env.DATABASE_URL_WRITE,
     },
   },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: [],
 });
 
 export const prismaRead = readClient;

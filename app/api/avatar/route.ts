@@ -16,7 +16,6 @@ export async function GET() {
     });
 
     const response = NextResponse.json(avatars);
-    response.headers.set("Cache-Control", "no-store"); // 🛑 prevent stale cache
     return response;
   } catch (error) {
     console.error("GET /api/avatar error:", error); // Log for Vercel or server logs

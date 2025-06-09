@@ -3,7 +3,7 @@ import {
     QueryClient,
 } from '@tanstack/react-query'
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import Image from 'next/image';
 import axios from 'axios';
 import { toast } from '@/hooks/use-toast';
@@ -25,9 +25,35 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
     const [brandName, setBrandName] = useState('');
     const [steps, setSteps] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [buyLink, setBuyLink] = useState('')
+    const [buyLink, setBuyLink] = useState('');
+
+    const [merchCategories, setMerchCategories] = useState<{ id: string; name: string }[]>([]);
+    // const [selectedMerchCategoryId, setSelectedMerchCategoryId] = useState<string | null>(null);
+    const [selectedMerchCategoryIds, setSelectedMerchCategoryIds] = useState<string[]>([]);
+
+
+
 
     const [loading1, setLoading1] = useState(false)
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await fetch('/api/merch-categories');
+                const data = await res.json();
+                setMerchCategories(data.data);
+                if (data.data.length > 0) {
+                    setSelectedMerchCategoryIds(data.data[0].id); // default selection
+                }
+                console.log("sanil", data);
+            } catch (err) {
+                console.error("Failed to fetch merch categories", err);
+            }
+        };
+
+        fetchCategories();
+    }, []);
+
 
     const resetForm = () => {
         setSteps(0);
@@ -107,6 +133,9 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
             formData.append('brandName', brandName);
             formData.append('name', name);
             formData.append('buyLink', buyLink);
+            formData.append('merchCategoryIds', JSON.stringify(selectedMerchCategoryIds));
+            console.log("sanil", formData);
+
 
             const res = await fetch('/api/garment', {
                 method: 'POST',
@@ -151,7 +180,7 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
             >
                 <div className="fixed inset-0 bg-black/25" aria-hidden="true" />
                 <div className="fixed inset-0 flex items-center justify-center p-4">
-                    <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+                    <Dialog.Panel className="w-full max-w-md rounded-2xl bg-neutral-900 border-[0.5px] text-white p-6 shadow-xl space-y-4">
                         <Dialog.Title className="text-lg font-medium">Upload Garment</Dialog.Title>
 
                         {steps === 0 && (
@@ -163,7 +192,7 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                                     if (file) handleImageUpload(file);
                                 }}
                                 className="w-full"
-                            /> : <h1>Loading...</h1>
+                            /> : <h1 className='text-center animate-pulse'>Loading...</h1>
                         )}
 
                         {steps === 1 && (
@@ -180,40 +209,63 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                                     </div>
                                 )}
 
-                                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded px-2 py-1">
-                                    {categoryOptions.map((cat) => (
-                                        <option key={cat}>{cat}</option>
+                                <div className='flex items-center gap-2'>
+                                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border bg-inherit rounded px-2 py-1">
+                                        {categoryOptions.map((cat) => (
+                                            <option key={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+
+                                    <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border bg-inherit  rounded px-2 py-1">
+                                        {genderOptions.map((gen) => (
+                                            <option key={gen}>{gen}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+
+                                <select
+                                    multiple
+                                    value={selectedMerchCategoryIds}
+                                    onChange={(e) =>
+                                        setSelectedMerchCategoryIds(Array.from(e.target.selectedOptions, option => option.value))
+                                    }
+                                    className="w-full bg-inherit  border rounded px-2 py-1 h-32"
+                                >
+                                    {merchCategories.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.name}
+                                        </option>
                                     ))}
                                 </select>
 
-                                <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full border rounded px-2 py-1">
-                                    {genderOptions.map((gen) => (
-                                        <option key={gen}>{gen}</option>
-                                    ))}
-                                </select>
 
-                                <input
-                                    type="text"
-                                    placeholder="Name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full border rounded px-2 py-1"
-                                />
+                                <div className='flex items-center gap-2'>
+                                    <input
+                                        type="text"
+                                        placeholder="Name"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full bg-inherit outline-none  border rounded px-2 py-1"
+                                    />
 
-                                <input
-                                    type="text"
-                                    placeholder="Price"
-                                    value={price}
-                                    onChange={(e) => setPrice(e.target.value)}
-                                    className="w-full border rounded px-2 py-1"
-                                />
+                                    <input
+                                        type="text"
+                                        placeholder="Price"
+                                        value={price}
+                                        onChange={(e) => setPrice(e.target.value)}
+                                        className="w-full bg-inherit outline-none border rounded px-2 py-1"
+                                    />
+                                </div>
+
+                                
 
                                 <input
                                     type="text"
                                     placeholder="Brand Name"
                                     value={brandName}
                                     onChange={(e) => setBrandName(e.target.value)}
-                                    className="w-full border rounded px-2 py-1"
+                                    className="w-full bg-inherit outline-none  border rounded px-2 py-1"
                                 />
 
                                 <input
@@ -221,7 +273,7 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                                     placeholder="Buy Link"
                                     value={buyLink}
                                     onChange={(e) => setBuyLink(e.target.value)}
-                                    className="w-full border rounded px-2 py-1"
+                                    className="w-full bg-inherit outline-none border rounded px-2 py-1"
                                 />
 
                                 <div className="flex justify-between pt-4">

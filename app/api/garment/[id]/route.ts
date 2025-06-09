@@ -19,6 +19,10 @@ export async function PATCH(
     const buyLink = formData.get("buyLink") as string;
 
     const price = parseFloat(priceRaw || "0");
+    const merchCategoryIds = JSON.parse(
+      formData.get("merchCategoryIds") || "[]"
+    );
+
 
     if (!garmentId || !displayUrl || !gender || !type) {
       return NextResponse.json(
@@ -26,20 +30,27 @@ export async function PATCH(
         { status: 400 }
       );
     }
-
-    const updatedGarment = await prismaWrite.garment.update({
-      where: { id: garmentId },
-      data: {
-        displayUrl,
-        url: displayUrl, // assuming displayUrl and url are same
-        gender,
-        type,
-        brandName,
-        price,
-        name,
-        buyLink,
+    console.log("sanil", merchCategoryIds);
+  const updatedGarment = await prismaWrite.garment.update({
+    where: { id: garmentId },
+    data: {
+      displayUrl,
+      url: displayUrl,
+      gender,
+      type,
+      brandName,
+      price,
+      name,
+      buyLink,
+      merchCategories: {
+        deleteMany: {}, // 🔥 Delete all existing associations
+        create: merchCategoryIds.map((id: string) => ({
+          merchCategoryId: id,
+        })),
       },
-    });
+    },
+  });
+
 
     return NextResponse.json({ success: true, data: updatedGarment });
   } catch (error) {
