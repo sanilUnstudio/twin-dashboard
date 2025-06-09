@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABSE_URL_")
+  directUrl = env("DATABSE_URL")
+}
+
+enum Category {
+  TOP
+  BOTTOM
+  DRESS
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum STATUS {
+  PENDING
+  IN_PROGRESS
+  FAILED
+  COMPLETED
+}
+
+enum GarmentSource {
+  SYSTEM   // row in Garment
+  USER     // row in UserGarment
+}
+
+
+model Avatar {
+  id             String  @id @default(uuid())
+  userId         String
+  email          String? @default("")
+  trainingPath   String
+  numberOfImages Int
+  triggerWord    String  @default("UNST")
+  fcmToken       String?
+  gender         Gender? @default(MALE)
+  falRequestID   String?
+  faceImageUrl   String  @default("")
+  fullImageUrl   String? @default("")
+
+  // new fields:
+  trainingStatus  STATUS @default(PENDING) // PENDING, IN_PROGRESS, FAILED, COMPLETED
+  inferenceStatus STATUS @default(PENDING) // PENDING, IN_PROGRESS, FAILED, COMPLETED
+  vtonStatus      STATUS @default(PENDING) // PENDING, IN_PROGRESS, FAILED, COMPLETED
+
+  trainingError  String? // last error message
+  inferenceError String?
+  vtonError      String?
+
+  trainingImages  TrainingImage[]
+  inferenceImages InferenceImage[]
+  VtonResult      VtonResult[]
+  userGarments    UserGarment[]
+  trainingData    TrainingData[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model TrainingImage {
+  id        String   @id @default(uuid())
+  imagePath String
+  avatar    Avatar   @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+  avatarId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InferenceImage {
+  id        String       @id @default(uuid())
+  imagePath String
+  category  Category
+  avatar    Avatar       @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+  masks     MaskImages[]
+  avatarId  String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model MaskImages {
+  id               String         @id @default(uuid())
+  imagePath        String
+  category         Category
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  InferenceImage   InferenceImage @relation(fields: [inferenceImageId], references: [id], onDelete: Cascade)
+  inferenceImageId String
+}
+
+
+model VtonResult {
+  id           String   @id @default(uuid())
+  imageUrl     String
+  requestId    String?  @unique
+  status       STATUS   @default(PENDING)
+
+  /// Legacy array of garment display-URLs (kept so old clients keep working)
+  garmentImage String[]
+
+
+  avatarId     String
+  avatar       Avatar   @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+  garments     VtonResultGarment[]          // NEW
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MerchCategory {
+  id        String                 @id @default(uuid())
+  name      String // “Buttoned Shirts”
+  slug      String                 @unique // “buttoned-shirts”
+  garments  GarmentMerchCategory[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+}
+
+model GarmentMerchCategory {
+  garmentId       String
+  merchCategoryId String
+  garment         Garment       @relation(fields: [garmentId], references: [id], onDelete: Cascade)
+  merchCategory   MerchCategory @relation(fields: [merchCategoryId], references: [id], onDelete: Cascade)
+
+  @@id([garmentId, merchCategoryId])
+  @@index([merchCategoryId]) // WHERE merchCategoryId = …
+}
+
+model Garment {
+  id              String   @id @default(uuid())
+  displayUrl      String
+  url             String
+  name            String?
+  gender          Gender?
+  type            Category?
+  buyLink         String?  @default("")
+  price           Float?   @default(0.00)
+  brandName       String?  @default("")
+
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+
+
+  merchCategories GarmentMerchCategory[]
+  vtonLinks       VtonResultGarment[] @relation("SystemGarmentLink")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
+
+model UserGarment {
+  id              String   @id @default(uuid())
+  displayUrl      String
+  buyLink         String?  @default("")
+  name            String?
+  gender          Gender?
+  type            Category?
+  brand           String?  @default("")
+
+
+  isDeleted       Boolean  @default(false)
+  deletedAt       DateTime?
+
+
+  avatarId        String
+  avatar          Avatar @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+
+
+  vtonLinks       VtonResultGarment[] @relation("UserGarmentLink")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+
+model VtonResultGarment {
+  id             String         @id @default(uuid())
+
+  vtonResultId   String
+  vtonResult     VtonResult     @relation(fields:[vtonResultId], references:[id], onDelete: Cascade)
+
+  source         GarmentSource
+
+  garmentId      String?
+  garment        Garment?       @relation("SystemGarmentLink", fields:[garmentId],    references:[id], onDelete: Restrict)
+
+  userGarmentId  String?
+  userGarment    UserGarment?   @relation("UserGarmentLink",   fields:[userGarmentId],references:[id], onDelete: Restrict)
+
+  @@index([vtonResultId])
+  @@index([garmentId])
+  @@index([userGarmentId])
+}
+
+
+model TrainingData {
+  id                 String  @id @default(uuid())
+  upscaled_image     String? @default("")
+  actual_mask_image  String? @default("")
+  cropped_image      String? @default("")
+  cropped_mask_image String? @default("")
+  inpaint_image      String? @default("")
+  final_image        String? @default("")
+  avatarId           String
+  avatar             Avatar  @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+}
