@@ -31,7 +31,10 @@ const CategoryPage = () => {
       await axios.delete(`/api/delete-merch-category?id=${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["merch-categories"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['all-garments'] }),
+        queryClient.refetchQueries({ queryKey: ['all-garments'], type: 'active' })
+      ]);
     },
     onSettled: () => {
       setDeletingId(null); // <- Clear it regardless of success/fail

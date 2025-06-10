@@ -161,7 +161,10 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                     description: 'Garment uploaded successfully.',
                 })
                 resetForm();
-                await queryClient.invalidateQueries({ queryKey: ['all-garments'] })
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ['all-garments'] }),
+                    queryClient.refetchQueries({ queryKey: ['all-garments'], type: 'active' })
+                ]);
                 onClose();
             } else {
                 toast({

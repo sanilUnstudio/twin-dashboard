@@ -114,7 +114,11 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             const response = await axios.patch(`/api/garment/${garment.id}`, formData);
 
             if (response.data.success) {
-                await queryClient.invalidateQueries({ queryKey: ['all-garments'] })
+
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ['all-garments'] }),
+                    queryClient.refetchQueries({ queryKey: ['all-garments'], type: 'active' })
+                ]);
                 console.log("Garment updated successfully", response.data.data);
                 toast({
                     title: 'Success!',

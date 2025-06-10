@@ -58,8 +58,10 @@ const Card = (garments: any) => {
                 title: "Deleted",
                 description: 'Garment Deleted.',
             })
-
-            await queryClient.invalidateQueries({ queryKey: ['all-garments'] })
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['all-garments'] }),
+                queryClient.refetchQueries({ queryKey: ['all-garments'], type: 'active' })
+            ]);
         } catch (err) {
             console.log("sanil", err)
             toast({
