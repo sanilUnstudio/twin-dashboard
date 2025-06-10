@@ -19,9 +19,9 @@ export async function PATCH(
     const buyLink = formData.get("buyLink") as string;
 
     const price = parseFloat(priceRaw || "0");
-    const merchCategoryIds = JSON.parse(
-      formData.get("merchCategoryIds") || "[]"
-    );
+   const merchCategoryIds = JSON.parse(
+     (formData.get("merchCategoryIds") as string) || "[]"
+   );
 
 
     if (!garmentId || !displayUrl || !gender || !type) {
@@ -30,7 +30,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    console.log("sanil", merchCategoryIds);
+
   const updatedGarment = await prismaWrite.garment.update({
     where: { id: garmentId },
     data: {

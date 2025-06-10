@@ -1,12 +1,16 @@
 'use client'
-
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toImageKitUrl } from '@/lib/toImageKitUrl';
 import { toast } from '@/hooks/use-toast';
 import { QueryClient } from '@tanstack/react-query'
-import { Loader } from 'lucide-react';
+import { Loader, Loader2 } from 'lucide-react';
+import Select from 'react-select'
+interface CategoryOption {
+    value: string;
+    label: string;
+}
 
 export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen: boolean; onClose: () => void, garment: any }) {
 
@@ -21,25 +25,40 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
     const [isLoading, setIsLoading] = useState(false);
     const queryClient = new QueryClient();
     const [availableCategories, setAvailableCategories] = useState<{ id: string; name: string }[]>([]);
-    
+    const [isLoadingFetchingCategories, setIsLoadingFetchingCategories] = useState(false)
+  
 
-    const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-        garment?.merchCategories?.map((cat: any) => cat.merchCategory?.id) || []
-    );
+    const [selectedOptions, setSelectedOptions] = useState<CategoryOption[]>([]);
+    // Convert available categories to react-select format
+    const categoryOptions: CategoryOption[] = availableCategories.map((cat) => ({
+        value: cat.id,
+        label: cat.name,
+    }));
 
+    // Prefill when modal is opened
+    useEffect(() => {
+        const preselected = garment?.merchCategories?.map((cat: any) => ({
+            value: cat.merchCategory.id,
+            label: cat.merchCategory.name,
+        })) ?? [];
+        setSelectedOptions(preselected);
+    }, [garment]);
+
+    // Extract selected category IDs
+    const selectedCategoryIds = selectedOptions.map((opt) => opt.value);
 
 
     useEffect(() => {
         const fetchCategories = async () => {
             try {
+                setIsLoadingFetchingCategories(true)
                 const res = await fetch('/api/merch-categories');
                 const data = await res.json();
                 setAvailableCategories(data.data);
-                if (!selectedCategoryIds && data.data.length > 0) {
-                    setSelectedCategoryIds(data.data[0].id);
-                }
             } catch (err) {
                 console.error("Failed to fetch merch categories", err);
+            } finally {
+                setIsLoadingFetchingCategories(false)
             }
         };
 
@@ -49,31 +68,9 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
 
     const handleSubmit = async () => {
         try {
-            const presignRes = await fetch('/api/generate-presigned', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileType: newImage?.type }),
-            });
-
-            if (!presignRes.ok) throw new Error('Failed to get presigned URL');
-            const { uploadUrl, key } = await presignRes.json();
-
-            // 2. Upload image to S3
-            const s3UploadRes = await fetch(uploadUrl, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': newImage?.type || 'image/jpeg',
-                },
-                body: newImage,
-            });
-
-            if (!s3UploadRes.ok) throw new Error('Failed to upload image to S3');
-
-            // 3. Generate image URL (public)
-            const s3Url = `https://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${key}`;
-            const imageUrl = toImageKitUrl(s3Url);
             setIsLoading(true);
             const formData = new FormData();
+            // If change then run this block
             if (newImage) {
                 const presignRes = await fetch('/api/generate-presigned', {
                     method: 'POST',
@@ -104,15 +101,16 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             }
 
 
+            const categoryIdsOnly = selectedOptions.map(item => item.value);
+            formData.append('merchCategoryIds', JSON.stringify(categoryIdsOnly));
             formData.append('gender', gender);
             formData.append('category', type);
             formData.append('brandName', brandName);
             formData.append('price', price.toString());
             formData.append('name', name);
             formData.append('buyLink', buyLink);
-            formData.append('merchCategoryIds', JSON.stringify(selectedCategoryIds));
 
-
+            console.log("form data edit", formData);
             const response = await axios.patch(`/api/garment/${garment.id}`, formData);
 
             if (response.data.success) {
@@ -141,6 +139,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
             setIsLoading(false);
         }
     };
+
 
     return (
         <Transition show={isOpen} as={Fragment}>
@@ -254,20 +253,22 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                                     className="w-full bg-inherit text-white p-2 rounded border border-gray-700"
                                     placeholder="Buy Link"
                                 />
-                                <select
-                                    multiple
-                                    value={selectedCategoryIds}
-                                    onChange={(e) =>
-                                        setSelectedCategoryIds(Array.from(e.target.selectedOptions, (option) => option.value))
-                                    }
-                                    className="w-full bg-inherit text-white p-2 rounded border border-gray-700 h-32"
-                                >
-                                    {availableCategories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.name}
-                                        </option>
-                                    ))}
-                                </select>
+
+                               {!isLoadingFetchingCategories ?  <Select
+                                    isMulti
+                                    options={categoryOptions}
+                                    value={selectedOptions}
+                                    onChange={(newValue) => setSelectedOptions(newValue as CategoryOption[])}
+                                    className="basic-multi-select text-black"
+                                    classNamePrefix="select"
+                                    placeholder="Select categories"
+                                /> :
+                                    <div className='flex items-center justify-center'>
+                                        <Loader2 className='animate-spin' />
+                                    </div>
+                                }
+
+
                                 <div className="text-sm text-gray-400 mt-1">
                                     Selected: {selectedCategoryIds.length > 0
                                         ? availableCategories
@@ -282,7 +283,7 @@ export default function EditGarmentModal({ isOpen, onClose, garment }: { isOpen:
                             <div className="mt-6 flex justify-between items-center">
                                 <button
                                     onClick={onClose}
-                                    className="bg-white  px-4 py-2 rounded bg-inherit border text-white transition"
+                                    className=" px-4 py-2 rounded bg-inherit border text-white transition"
                                 >
                                     Cancel
                                 </button>

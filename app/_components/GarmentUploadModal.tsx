@@ -3,11 +3,16 @@ import {
     QueryClient,
 } from '@tanstack/react-query'
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment, useState, useEffect } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import axios from 'axios';
 import { toast } from '@/hooks/use-toast';
 import { toImageKitUrl } from '@/lib/toImageKitUrl';
+import Select from 'react-select'
+interface MerchCategoryOption {
+    value: string;
+    label: string;
+}
 
 const categoryOptions = ['TOP', 'BOTTOM', 'DRESS'];
 const genderOptions = ['MALE', 'FEMALE'];
@@ -28,8 +33,15 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
     const [buyLink, setBuyLink] = useState('');
 
     const [merchCategories, setMerchCategories] = useState<{ id: string; name: string }[]>([]);
-    // const [selectedMerchCategoryId, setSelectedMerchCategoryId] = useState<string | null>(null);
-    const [selectedMerchCategoryIds, setSelectedMerchCategoryIds] = useState<string[]>([]);
+    const [selectedOptions, setSelectedOptions] = useState<MerchCategoryOption[]>([]);
+    const merchCategoryOptions: MerchCategoryOption[] = useMemo(() => {
+        return merchCategories.length > 0
+            ? merchCategories.map((cat) => ({
+                value: cat.id,
+                label: cat.name,
+            }))
+            : [];
+    }, [merchCategories]);
 
 
 
@@ -42,10 +54,6 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                 const res = await fetch('/api/merch-categories');
                 const data = await res.json();
                 setMerchCategories(data.data);
-                if (data.data.length > 0) {
-                    setSelectedMerchCategoryIds(data.data[0].id); // default selection
-                }
-                console.log("sanil", data);
             } catch (err) {
                 console.error("Failed to fetch merch categories", err);
             }
@@ -77,13 +85,17 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
             setLoading1(true)
             try {
                 const res = await axios.post("/api/analyze-garment", { base64Image: base64 });
-                console.log("sanil",res)
+                console.log("sanil", res)
                 // setName(res.data.name);
                 setCategory(res.data.type);
                 setGender(res.data.gender);
                 setSteps(1);
             } catch (err) {
                 console.error("Upload error:", err);
+                toast({
+                    title: 'Warning!',
+                    description: 'failed to fetch garment category options.',
+                })
             } finally {
                 setLoading1(false)
             }
@@ -133,8 +145,8 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
             formData.append('brandName', brandName);
             formData.append('name', name);
             formData.append('buyLink', buyLink);
-            formData.append('merchCategoryIds', JSON.stringify(selectedMerchCategoryIds));
-            console.log("sanil", formData);
+            formData.append('merchCategoryIds', JSON.stringify(selectedOptions.map(opt => opt.value)));
+            console.log("garment create formdata", formData);
 
 
             const res = await fetch('/api/garment', {
@@ -222,22 +234,16 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                                         ))}
                                     </select>
                                 </div>
-                                
 
-                                <select
-                                    multiple
-                                    value={selectedMerchCategoryIds}
-                                    onChange={(e) =>
-                                        setSelectedMerchCategoryIds(Array.from(e.target.selectedOptions, option => option.value))
-                                    }
-                                    className="w-full bg-inherit  border rounded px-2 py-1 h-32"
-                                >
-                                    {merchCategories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <Select
+                                    isMulti
+                                    options={merchCategoryOptions}
+                                    value={selectedOptions}
+                                    onChange={(newValue) => setSelectedOptions(newValue as any)}
+                                    className="basic-multi-select text-black"
+                                    classNamePrefix="select"
+                                    placeholder="Select categories"
+                                />
 
 
                                 <div className='flex items-center gap-2'>
@@ -258,7 +264,7 @@ export default function GarmentUploadModal({ isOpen, onClose }: { isOpen: boolea
                                     />
                                 </div>
 
-                                
+
 
                                 <input
                                     type="text"
